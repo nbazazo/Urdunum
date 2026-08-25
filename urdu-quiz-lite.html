@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Urdu Numbers — Speak</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  html, body { margin: 0; padding: 0; }
+  * { box-sizing: border-box; }
+</style>
+</head>
+<body>
+<div id="root">Loading…</div>
+<script>
+  window.onerror = function (msg, src, line, col, err) {
+    document.getElementById("root").innerHTML =
+      "<pre style='padding:20px;color:#B5493B;font-family:monospace;white-space:pre-wrap;'>" +
+      "Script error:\n" + msg + "\nLine " + line + ", Col " + col +
+      (err && err.stack ? "\n\n" + err.stack : "") + "</pre>";
+  };
+</script>
+<script type="text/jsx-source" id="app-source">
+const { useState, useRef, useCallback, useEffect } = React;
+
+// Confirmed vocabulary only: 0-40 individually, plus decades 50-100.
+// 41-99 (non-decade) deliberately omitted — irregular, not included
+// without a verified source.
+const NUMBERS = [
+  [0, "صفر", "sifar"], [1, "ایک", "ek"], [2, "دو", "do"], [3, "تین", "teen"],
+  [4, "چار", "chaar"], [5, "پانچ", "paanch"], [6, "چھ", "chhe"], [7, "سات", "saat"],
+  [8, "آٹھ", "aath"], [9, "نو", "nau"], [10, "دس", "das"], [11, "گیارہ", "gyarah"],
+  [12, "بارہ", "baarah"], [13, "تیرہ", "terah"], [14, "چودہ", "chaudah"],
+  [15, "پندرہ", "pandrah"], [16, "سولہ", "solah"], [17, "سترہ", "satrah"],
+  [18, "اٹھارہ", "atharah"], [19, "انیس", "unnees"], [20, "بیس", "bees"],
+  [21, "اکیس", "ikkees"], [22, "بائیس", "baees"], [23, "تئیس", "teyees"],
+  [24, "چوبیس", "chaubees"], [25, "پچیس", "pachees"], [26, "چھبیس", "chhabees"],
+  [27, "ستائیس", "sattaees"], [28, "اٹھائیس", "athaees"], [29, "انتیس", "untees"],
+  [30, "تیس", "tees"], [31, "اکتیس", "iktees"], [32, "بتیس", "battees"],
+  [33, "تینتیس", "tentees"], [34, "چونتیس", "chauntees"], [35, "پینتیس", "paintees"],
+  [36, "چھتیس", "chhattees"], [37, "سینتیس", "saintees"], [38, "اڑتیس", "artees"],
+  [39, "انتالیس", "untaalees"], [40, "چالیس", "chaalees"],
+  [50, "پچاس", "pachaas"], [60, "ساٹھ", "saath"], [70, "ستر", "sattar"],
+  [80, "اسی", "assi"], [90, "نوے", "nabbe"], [100, "سو", "sau"],
+];
+
+const LEVELS = {
+  easy: { label: "0–20", filter: (n) => n <= 20 },
+  medium: { label: "0–40", filter: (n) => n <= 40 },
+  hard: { label: "0–40 + decades to 100", filter: () => true },
+};
+
+function normalize(str) {
+  return (str || "")
+    .toLowerCase()
+    .replace(/[\u064B-\u0652\u0670]/g, "")
+    .replace(/[^\p{L}\p{N}]/gu, "")
+    .trim();
+}
+
+function UrduNumberSpeechQuiz() {
+  const [level, setLevel] = useState("easy");
+  const [pool, setPool] = useState([]);
+  const [current, setCurrent] = useState(null);
+  const [status, setStatus] = useState("idle");
+  const [heard, setHeard] = useState("");
+  const [score, setScore] = useState(0);
+  const [streak, setStreak] = useState(0);
+  const [bestStreak, setBestStreak] = useState(0);
+  const [asked, setAsked] = useState(0);
+  const [sttLang, setSttLang] = useState("ur-PK");
+  const recognitionRef = useRef(null);
+  const supported = useRef(true);
+  const timeoutRef = useRef(null);
+
+  const clearListenTimeout = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  };
+
+  const buildPool = useCallback(
+    () => NUMBERS.filter(([n]) => LEVELS[level].filter(n)),
+    [level]
+  );
+
+  const nextQuestion = useCallback((p) => {
+    const source = p || pool;
+    const answer = source[Math.floor(Math.random() * source.length)];
+    setCurrent(answer);
+    setStatus("idle");
+    setHeard("");
+  }, [pool]);
+
+  useEffect(() => {
+    const p = buildPool();
+    setPool(p);
+    nextQuestion(p);
+    // eslint-disable-next-line
+  }, [level]);
+
+  useEffect(() => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      supported.current = false;
+      setStatus("unsupported");
+      return;
+    }
+    const recognition = new SR();
+    recognition.lang = sttLang;
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 3;
+
+    recognition.onresult = (event) => {
+      clearListenTimeout();
+      const alternatives = Array.from(event.results[0]).map((r) => r.transcript);
+      const target = current;
+      if (!target) return;
+      const targetNorms = [normalize(target[1]), normalize(target[2])];
+      const matched = alternatives.some((alt) => targetNorms.includes(normalize(alt)));
+      setHeard(alternatives[0]);
+      setAsked((a) => a + 1);
+      if (matched) {
+        setStatus("correct");
+        setScore((s) => s + 1);
+        setStreak((s) => {
+          const ns = s + 1;
+          setBestStreak((b) => Math.max(b, ns));
+          return ns;
+        });
+      } else {
+        setStatus("wrong");
+        setStreak(0);
+      }
+    };
+
+    recognition.onerror = (event) => {
+      clearListenTimeout();
+      setHeard(event && event.error ? event.error : "");
+      setStatus((s) => (s === "listening" ? "mic-error" : s));
+    };
+
+    recognition.onend = () => {
+      clearListenTimeout();
+      setStatus((s) => (s === "listening" ? "no-match" : s));
+    };
+
+    recognitionRef.current = recognition;
+    return () => {
+      clearListenTimeout();
+      recognition.abort();
+    };
+    // eslint-disable-next-line
+  }, [current, sttLang]);
+
+  const startListening = () => {
+    if (!supported.current || !recognitionRef.current) return;
+    setStatus("listening");
+    setHeard("");
+    clearListenTimeout();
+    timeoutRef.current = setTimeout(() => {
+      try {
+        recognitionRef.current && recognitionRef.current.stop();
+      } catch (e) {}
+      setStatus((s) => (s === "listening" ? "no-match" : s));
+    }, 6000);
+    try {
+      recognitionRef.current.start();
+    } catch (e) {
+      clearListenTimeout();
+      setStatus("mic-error");
+      setHeard(e && e.message ? e.message : String(e));
+    }
+  };
+
+  const stopListening = () => {
+    clearListenTimeout();
+    try {
+      recognitionRef.current && recognitionRef.current.stop();
+    } catch (e) {}
+    setStatus((s) => (s === "listening" ? "idle" : s));
+  };
+
+  const resetGame = () => {
+    setScore(0);
+    setStreak(0);
+    setBestStreak(0);
+    setAsked(0);
+    const p = buildPool();
+    setPool(p);
+    nextQuestion(p);
+  };
+
+  if (!current) return null;
+
+  const insecureContext =
+    typeof window !== "undefined" && window.isSecureContext === false;
+
+  const accuracy = asked > 0 ? Math.round((score / asked) * 100) : 0;
+
+  const statusCopy = {
+    idle: "Tap the mic and say the number in Urdu",
+    listening: "Listening…",
+    correct: `Correct — you said "${heard}"`,
+    wrong: `Not quite — you said "${heard}", expected ${current[1]} (${current[2]})`,
+    "no-match": "Didn't catch that. Try again.",
+    unsupported: "Speech recognition isn't supported in this browser. Try Chrome or Edge.",
+    "mic-error": heard
+      ? `Mic error: ${heard}. Check the microphone permission for this page.`
+      : "Mic error. Check the microphone permission for this page.",
+  };
+
+  return (
+    <div style={styles.page}>
+      <div style={styles.card}>
+        <div style={styles.header}>
+          <div>
+            <div style={styles.eyebrow}>گنتی بولیں</div>
+            <h1 style={styles.title}>Urdu Numbers — Speak</h1>
+          </div>
+          <div style={styles.statBlock}>
+            <Stat label="Score" value={`${score}/${asked}`} />
+            <Stat label="Streak" value={streak} accent={streak >= 3} />
+            <Stat label="Best" value={bestStreak} />
+          </div>
+        </div>
+
+        <div style={styles.levelRow}>
+          {Object.entries(LEVELS).map(([key, cfg]) => (
+            <button
+              key={key}
+              onClick={() => setLevel(key)}
+              style={{ ...styles.levelBtn, ...(level === key ? styles.levelBtnActive : {}) }}
+            >
+              {cfg.label}
+            </button>
+          ))}
+        </div>
+
+        <div style={styles.numberDisplay}>{current[0]}</div>
+
+        {insecureContext && (
+          <div style={styles.warningBox}>
+            This page is running in an insecure context. Chrome may block
+            microphone access here.
+          </div>
+        )}
+
+        <div style={styles.langRow}>
+          {["ur-PK", "en-US"].map((code) => (
+            <button
+              key={code}
+              onClick={() => setSttLang(code)}
+              disabled={status === "listening"}
+              style={{ ...styles.langBtn, ...(sttLang === code ? styles.langBtnActive : {}) }}
+            >
+              {code === "ur-PK" ? "Urdu speech" : "Roman-Urdu speech"}
+            </button>
+          ))}
+        </div>
+
+        <div style={styles.micRow}>
+          <button
+            onClick={startListening}
+            disabled={!supported.current || status === "listening"}
+            style={{ ...styles.micBtn, ...(status === "listening" ? styles.micBtnActive : {}) }}
+          >
+            {status === "listening" ? "● Listening…" : "🎙 Speak"}
+          </button>
+          {status === "listening" && (
+            <button onClick={stopListening} style={styles.stopBtn}>Stop</button>
+          )}
+        </div>
+
+        <div
+          style={{
+            ...styles.statusBox,
+            borderColor: status === "correct" ? "#5B7F52" : status === "wrong" ? "#B5493B" : "#DDD4C7",
+            color: status === "correct" ? "#3F5A38" : status === "wrong" ? "#8A3327" : "#5A5346",
+          }}
+        >
+          {statusCopy[status]}
+        </div>
+
+        <div style={styles.footer}>
+          <button style={styles.primaryBtn} onClick={() => nextQuestion()}>Next number →</button>
+          <button style={styles.resetBtn} onClick={resetGame}>Reset</button>
+        </div>
+
+        {asked > 0 && <div style={styles.accuracyRow}>Accuracy: {accuracy}%</div>}
+      </div>
+    </div>
+  );
+}
+
+function Stat({ label, value, accent }) {
+  return (
+    <div style={styles.stat}>
+      <div style={{ ...styles.statValue, color: accent ? "#B5493B" : "#2E2A24" }}>{value}</div>
+      <div style={styles.statLabel}>{label}</div>
+    </div>
+  );
+}
+
+const styles = {
+  page: { minHeight: "100vh", background: "#EFE9DC", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px", fontFamily: "'Georgia', 'Times New Roman', serif" },
+  card: { width: "100%", maxWidth: 480, background: "#FFFFFF", borderRadius: 4, border: "1px solid #DDD4C7", padding: "28px 24px", boxShadow: "0 2px 0 #DDD4C7" },
+  header: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 },
+  eyebrow: { fontSize: 13, letterSpacing: 1, color: "#8A7F6A", marginBottom: 2 },
+  title: { fontSize: 22, margin: 0, color: "#2E2A24", fontWeight: 600 },
+  statBlock: { display: "flex", gap: 14 },
+  stat: { textAlign: "center" },
+  statValue: { fontSize: 18, fontWeight: 700, fontFamily: "monospace" },
+  statLabel: { fontSize: 10, color: "#8A7F6A", letterSpacing: 0.5, textTransform: "uppercase" },
+  levelRow: { display: "flex", gap: 8, marginBottom: 24 },
+  levelBtn: { flex: 1, padding: "6px 8px", fontSize: 12, borderRadius: 3, border: "1px solid #DDD4C7", background: "#F7F3EA", color: "#5A5346", cursor: "pointer", fontFamily: "inherit" },
+  levelBtnActive: { background: "#2E2A24", color: "#F7F3EA", borderColor: "#2E2A24" },
+  numberDisplay: { textAlign: "center", fontSize: 72, fontWeight: 700, color: "#2E2A24", fontFamily: "monospace", lineHeight: 1, marginBottom: 20 },
+  warningBox: { fontSize: 11, color: "#8A3327", background: "#F5E2DE", border: "1px solid #B5493B", borderRadius: 4, padding: "8px 10px", marginBottom: 14, textAlign: "center" },
+  langRow: { display: "flex", gap: 8, justifyContent: "center", marginBottom: 14 },
+  langBtn: { padding: "5px 10px", fontSize: 11, borderRadius: 999, border: "1px solid #DDD4C7", background: "#F7F3EA", color: "#8A7F6A", cursor: "pointer", fontFamily: "inherit" },
+  langBtnActive: { background: "#5A5346", color: "#F7F3EA", borderColor: "#5A5346" },
+  micRow: { display: "flex", gap: 10, justifyContent: "center", alignItems: "center", marginBottom: 16 },
+  micBtn: { padding: "14px 28px", fontSize: 16, borderRadius: 999, border: "2px solid #2E2A24", background: "#2E2A24", color: "#F7F3EA", cursor: "pointer", fontFamily: "inherit" },
+  micBtnActive: { background: "#B5493B", borderColor: "#B5493B" },
+  stopBtn: { padding: "10px 16px", fontSize: 13, borderRadius: 999, border: "1px solid #B5493B", background: "#FFFFFF", color: "#B5493B", cursor: "pointer", fontFamily: "inherit" },
+  statusBox: { minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", fontSize: 14, border: "1px solid", borderRadius: 4, padding: "10px 12px", marginBottom: 20, background: "#F7F3EA" },
+  footer: { display: "flex", alignItems: "center", justifyContent: "space-between" },
+  primaryBtn: { background: "#5B7F52", color: "#FFFFFF", border: "none", borderRadius: 3, padding: "10px 18px", fontSize: 14, cursor: "pointer", fontFamily: "inherit" },
+  resetBtn: { background: "transparent", border: "1px solid #DDD4C7", borderRadius: 3, padding: "10px 14px", fontSize: 13, color: "#8A7F6A", cursor: "pointer", fontFamily: "inherit" },
+  accuracyRow: { marginTop: 14, textAlign: "center", fontSize: 11, color: "#B5A98F", letterSpacing: 0.5 },
+};
+</script>
+<script>
+  try {
+    var source = document.getElementById("app-source").textContent;
+    var output = Babel.transform(source, {
+      presets: [["react", { runtime: "classic" }]],
+      filename: "app.jsx",
+    }).code;
+    var s = document.createElement("script");
+    s.textContent = output;
+    document.body.appendChild(s);
+  } catch (err) {
+    document.getElementById("root").innerHTML =
+      "<pre style='padding:20px;color:#B5493B;font-family:monospace;white-space:pre-wrap;'>Babel transform error:\n" +
+      err.message + "\n\n" + (err.stack || "") + "</pre>";
+  }
+</script>
+</body>
+</html>
