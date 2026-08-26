@@ -71,6 +71,36 @@ function normalize(str) {
     .trim();
 }
 
+// Levenshtein edit distance — lets us accept near-misses from accented or
+// imperfect speech recognition instead of requiring an exact match.
+function editDistance(a, b) {
+  const m = a.length, n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] =
+        a[i - 1] === b[j - 1]
+          ? dp[i - 1][j - 1]
+          : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    }
+  }
+  return dp[m][n];
+}
+
+// Allow 1 edit for short words, 2 for longer ones — tolerant of accent-driven
+// mis-transcription without accepting a totally different word.
+function fuzzyMatch(a, b) {
+  if (!a || !b) return false;
+  if (a === b) return true;
+  const maxLen = Math.max(a.length, b.length);
+  const threshold = maxLen <= 5 ? 1 : 2;
+  return editDistance(a, b) <= threshold;
+}
+
 function UrduNumberSpeechQuiz() {
   const [level, setLevel] = useState("easy");
   const [pool, setPool] = useState([]);
@@ -131,8 +161,11 @@ function UrduNumberSpeechQuiz() {
       const alternatives = Array.from(event.results[0]).map((r) => r.transcript);
       const target = current;
       if (!target) return;
-      const targetNorms = [normalize(target[1]), normalize(target[2])];
-      const matched = alternatives.some((alt) => targetNorms.includes(normalize(alt)));
+      const targetNorms = [normalize(target[1]), normalize(target[2]), String(target[0])];
+      const matched = alternatives.some((alt) => {
+        const normAlt = normalize(alt);
+        return targetNorms.some((t) => fuzzyMatch(normAlt, t));
+      });
       setHeard(alternatives[0]);
       setAsked((a) => a + 1);
       if (matched) {
