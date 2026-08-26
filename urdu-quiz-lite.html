@@ -171,19 +171,23 @@ function UrduNumberSpeechQuiz() {
       const target = current;
       if (!target) return;
       const wordTargets = [normalize(target[1]), normalize(target[2])];
-      const digitTarget = String(target[0]);
       const isNumeric = (s) => /^[0-9]+$/.test(s);
+      // Only match against the Urdu word / its Roman-Urdu transliteration.
+      // A plain digit transcription (e.g. from saying the English number
+      // word, which Chrome auto-converts to "35") is never accepted as
+      // correct — otherwise the answer key could be said in English to
+      // cheat. But it's also not automatically wrong: the recognizer
+      // sometimes mishears a genuine Urdu attempt as digits. If every
+      // alternative is purely numeric, treat it as inconclusive — ask to
+      // retry rather than penalizing a possibly-correct answer.
       const matched = alternatives.some((alt) => {
         const normAlt = normalize(alt);
-        // Digit transcriptions must match the number exactly — fuzzy
-        // matching on digit strings compares characters, not magnitude,
-        // so "31" and "35" would wrongly count as a near-miss.
-        if (isNumeric(normAlt)) return normAlt === digitTarget;
         return wordTargets.some((t) => fuzzyMatch(normAlt, t));
       });
+      const allNumeric = alternatives.every((alt) => isNumeric(normalize(alt)));
       setHeard(alternatives[0]);
-      setAsked((a) => a + 1);
       if (matched) {
+        setAsked((a) => a + 1);
         setStatus("correct");
         setScore((s) => s + 1);
         setMastered((m) => {
@@ -196,7 +200,11 @@ function UrduNumberSpeechQuiz() {
           setBestStreak((b) => Math.max(b, ns));
           return ns;
         });
+      } else if (allNumeric) {
+        // Inconclusive — don't count it against score or streak.
+        setStatus("inconclusive");
       } else {
+        setAsked((a) => a + 1);
         setStatus("wrong");
         setStreak(0);
       }
@@ -273,6 +281,7 @@ function UrduNumberSpeechQuiz() {
     correct: `Correct — you said "${heard}"`,
     wrong: `Not quite — you said "${heard}", expected ${current[1]} (${current[2]})`,
     "no-match": "Didn't catch that. Try again.",
+    inconclusive: `Heard only a number ("${heard}") — couldn't tell if that was Urdu. Try saying it again, a bit more clearly.`,
     unsupported: "Speech recognition isn't supported in this browser. Try Chrome or Edge.",
     "mic-error": heard
       ? `Mic error: ${heard}. Check the microphone permission for this page.`
