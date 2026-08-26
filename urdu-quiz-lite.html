@@ -4,6 +4,22 @@
 <meta charset="UTF-8" />
 <title>Urdu Numbers — Speak</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<script>
+  window.__log = [];
+  function setStatus(s) {
+    window.__log.push(s);
+    var r = document.getElementById("root");
+    if (r) r.innerHTML = window.__log.map(function(l){return "&#10003; " + l;}).join("<br>");
+  }
+  window.onerror = function (msg, src, line, col, err) {
+    var r = document.getElementById("root");
+    if (r) r.innerHTML = window.__log.map(function(l){return "&#10003; " + l;}).join("<br>") +
+      "<pre style='margin-top:16px;padding:12px;color:#B5493B;background:#fff0ee;font-family:monospace;white-space:pre-wrap;border:1px solid #B5493B;'>" +
+      "ERROR:\n" + msg + "\nLine " + line + ", Col " + col +
+      (err && err.stack ? "\n\n" + err.stack : "") + "</pre>";
+    return true;
+  };
+</script>
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js" onload="setStatus('React loaded (' + React.version + ')')" onerror="setStatus('REACT FAILED TO LOAD')"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" onload="setStatus('ReactDOM loaded')" onerror="setStatus('REACT-DOM FAILED TO LOAD')"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js" onload="setStatus('Babel loaded (' + Babel.version + ')')" onerror="setStatus('BABEL FAILED TO LOAD')"></script>
@@ -15,20 +31,6 @@
 <body>
 <div id="root" style="padding:20px;font-family:monospace;font-size:14px;color:#333;">Booting…</div>
 <script>
-  window.__log = [];
-  function setStatus(s) {
-    window.__log.push(s);
-    var r = document.getElementById("root");
-    if (r) r.innerHTML = window.__log.map(function(l){return "&#10003; " + l;}).join("<br>");
-  }
-  window.onerror = function (msg, src, line, col, err) {
-    var r = document.getElementById("root");
-    r.innerHTML = window.__log.map(function(l){return "&#10003; " + l;}).join("<br>") +
-      "<pre style='margin-top:16px;padding:12px;color:#B5493B;background:#fff0ee;font-family:monospace;white-space:pre-wrap;border:1px solid #B5493B;'>" +
-      "ERROR:\n" + msg + "\nLine " + line + ", Col " + col +
-      (err && err.stack ? "\n\n" + err.stack : "") + "</pre>";
-    return true;
-  };
   setStatus("Page shell loaded");
 </script>
 <script type="text/jsx-source" id="app-source">
@@ -343,6 +345,15 @@ const styles = {
   resetBtn: { background: "transparent", border: "1px solid #DDD4C7", borderRadius: 3, padding: "10px 14px", fontSize: 13, color: "#8A7F6A", cursor: "pointer", fontFamily: "inherit" },
   accuracyRow: { marginTop: 14, textAlign: "center", fontSize: 11, color: "#B5A98F", letterSpacing: 0.5 },
 };
+
+try {
+  ReactDOM.createRoot(document.getElementById("root")).render(<UrduNumberSpeechQuiz />);
+} catch (err) {
+  document.getElementById("root").innerHTML =
+    (window.__log ? window.__log.map(function(l){return "&#10003; " + l;}).join("<br>") : "") +
+    "<pre style='margin-top:16px;padding:12px;color:#B5493B;background:#fff0ee;font-family:monospace;white-space:pre-wrap;border:1px solid #B5493B;'>Render error:\n" +
+    err.message + "\n\n" + (err.stack || "") + "</pre>";
+}
 </script>
 <script>
   setStatus("Starting JSX transform (this can take a few seconds on mobile)...");
