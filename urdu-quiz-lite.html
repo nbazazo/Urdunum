@@ -111,6 +111,7 @@ function UrduNumberSpeechQuiz() {
   const [streak, setStreak] = useState(0);
   const [bestStreak, setBestStreak] = useState(0);
   const [asked, setAsked] = useState(0);
+  const [mastered, setMastered] = useState(() => new Set());
   const [sttLang, setSttLang] = useState("ur-PK");
   const recognitionRef = useRef(null);
   const supported = useRef(true);
@@ -128,18 +129,26 @@ function UrduNumberSpeechQuiz() {
     [level]
   );
 
-  const nextQuestion = useCallback((p) => {
+  const nextQuestion = useCallback((p, masteredSet) => {
     const source = p || pool;
-    const answer = source[Math.floor(Math.random() * source.length)];
+    const activeMastered = masteredSet !== undefined ? masteredSet : mastered;
+    let remaining = source.filter(([n]) => !activeMastered.has(n));
+    // Whole set cleared — start a fresh round rather than getting stuck.
+    if (remaining.length === 0) {
+      remaining = source;
+      setMastered(new Set());
+    }
+    const answer = remaining[Math.floor(Math.random() * remaining.length)];
     setCurrent(answer);
     setStatus("idle");
     setHeard("");
-  }, [pool]);
+  }, [pool, mastered]);
 
   useEffect(() => {
     const p = buildPool();
     setPool(p);
-    nextQuestion(p);
+    setMastered(new Set());
+    nextQuestion(p, new Set());
     // eslint-disable-next-line
   }, [level]);
 
@@ -161,16 +170,27 @@ function UrduNumberSpeechQuiz() {
       const alternatives = Array.from(event.results[0]).map((r) => r.transcript);
       const target = current;
       if (!target) return;
-      const targetNorms = [normalize(target[1]), normalize(target[2]), String(target[0])];
+      const wordTargets = [normalize(target[1]), normalize(target[2])];
+      const digitTarget = String(target[0]);
+      const isNumeric = (s) => /^[0-9]+$/.test(s);
       const matched = alternatives.some((alt) => {
         const normAlt = normalize(alt);
-        return targetNorms.some((t) => fuzzyMatch(normAlt, t));
+        // Digit transcriptions must match the number exactly — fuzzy
+        // matching on digit strings compares characters, not magnitude,
+        // so "31" and "35" would wrongly count as a near-miss.
+        if (isNumeric(normAlt)) return normAlt === digitTarget;
+        return wordTargets.some((t) => fuzzyMatch(normAlt, t));
       });
       setHeard(alternatives[0]);
       setAsked((a) => a + 1);
       if (matched) {
         setStatus("correct");
         setScore((s) => s + 1);
+        setMastered((m) => {
+          const next = new Set(m);
+          next.add(target[0]);
+          return next;
+        });
         setStreak((s) => {
           const ns = s + 1;
           setBestStreak((b) => Math.max(b, ns));
@@ -234,9 +254,10 @@ function UrduNumberSpeechQuiz() {
     setStreak(0);
     setBestStreak(0);
     setAsked(0);
+    setMastered(new Set());
     const p = buildPool();
     setPool(p);
-    nextQuestion(p);
+    nextQuestion(p, new Set());
   };
 
   if (!current) return null;
@@ -335,7 +356,11 @@ function UrduNumberSpeechQuiz() {
           <button style={styles.resetBtn} onClick={resetGame}>Reset</button>
         </div>
 
-        {asked > 0 && <div style={styles.accuracyRow}>Accuracy: {accuracy}%</div>}
+        {asked > 0 && (
+          <div style={styles.accuracyRow}>
+            Accuracy: {accuracy}% · Mastered {mastered.size}/{pool.length}
+          </div>
+        )}
       </div>
     </div>
   );
