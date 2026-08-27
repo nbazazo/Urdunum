@@ -75,9 +75,9 @@ const NUMBERS = [
 ];
 
 const LEVELS = {
-  easy: { label: "0–20", filter: (n) => n <= 20 },
-  medium: { label: "0–50", filter: (n) => n <= 50 },
-  hard: { label: "0–100", filter: () => true },
+  easy: { label: "0–29", filter: (n) => n >= 0 && n <= 29 },
+  medium: { label: "30–69", filter: (n) => n >= 30 && n <= 69 },
+  hard: { label: "70–100", filter: (n) => n >= 70 && n <= 100 },
 };
 
 function normalize(str) {
