@@ -36,31 +36,48 @@
 <script type="text/jsx-source" id="app-source">
 const { useState, useRef, useCallback, useEffect } = React;
 
-// Confirmed vocabulary only: 0-40 individually, plus decades 50-100.
-// 41-99 (non-decade) deliberately omitted — irregular, not included
-// without a verified source.
+// Full 0-100 list, Urdu script + Roman Urdu (user-supplied, verified source).
 const NUMBERS = [
-  [0, "صفر", "sifar"], [1, "ایک", "ek"], [2, "دو", "do"], [3, "تین", "teen"],
-  [4, "چار", "chaar"], [5, "پانچ", "paanch"], [6, "چھ", "chhe"], [7, "سات", "saat"],
-  [8, "آٹھ", "aath"], [9, "نو", "nau"], [10, "دس", "das"], [11, "گیارہ", "gyarah"],
+  [0, "صفر", "sifar"], [1, "ایک", "aik"], [2, "دو", "do"],
+  [3, "تین", "teen"], [4, "چار", "chaar"], [5, "پانچ", "paanch"],
+  [6, "چھ", "chheh"], [7, "سات", "saat"], [8, "آٹھ", "aath"],
+  [9, "نو", "nau"], [10, "دس", "das"], [11, "گیارہ", "gyaarah"],
   [12, "بارہ", "baarah"], [13, "تیرہ", "terah"], [14, "چودہ", "chaudah"],
   [15, "پندرہ", "pandrah"], [16, "سولہ", "solah"], [17, "سترہ", "satrah"],
-  [18, "اٹھارہ", "atharah"], [19, "انیس", "unnees"], [20, "بیس", "bees"],
-  [21, "اکیس", "ikkees"], [22, "بائیس", "baees"], [23, "تئیس", "teyees"],
-  [24, "چوبیس", "chaubees"], [25, "پچیس", "pachees"], [26, "چھبیس", "chhabees"],
-  [27, "ستائیس", "sattaees"], [28, "اٹھائیس", "athaees"], [29, "انتیس", "untees"],
+  [18, "اٹھارہ", "athaarah"], [19, "انیس", "unnees"], [20, "بیس", "bees"],
+  [21, "اکیس", "ikkees"], [22, "بائیس", "baaees"], [23, "تئیس", "teis"],
+  [24, "چوبیس", "chaubees"], [25, "پچیس", "pachchees"], [26, "چھبیس", "chhabbees"],
+  [27, "ستائیس", "sattaais"], [28, "اٹھائیس", "athaaees"], [29, "انتیس", "untees"],
   [30, "تیس", "tees"], [31, "اکتیس", "iktees"], [32, "بتیس", "battees"],
   [33, "تینتیس", "tentees"], [34, "چونتیس", "chauntees"], [35, "پینتیس", "paintees"],
   [36, "چھتیس", "chhattees"], [37, "سینتیس", "saintees"], [38, "اڑتیس", "artees"],
-  [39, "انتالیس", "untaalees"], [40, "چالیس", "chaalees"],
-  [50, "پچاس", "pachaas"], [60, "ساٹھ", "saath"], [70, "ستر", "sattar"],
-  [80, "اسی", "assi"], [90, "نوے", "nabbe"], [100, "سو", "sau"],
+  [39, "انتالیس", "untalees"], [40, "چالیس", "chaalees"], [41, "اکتالیس", "iktaalees"],
+  [42, "بیالیس", "bayaalees"], [43, "تینتالیس", "taintaalees"], [44, "چوالیس", "chawaalees"],
+  [45, "پینتالیس", "paintaalees"], [46, "چھیالیس", "chhiyaalees"], [47, "سینتالیس", "saintaalees"],
+  [48, "اڑتالیس", "artaalees"], [49, "انچاس", "unchaas"], [50, "پچاس", "pachaas"],
+  [51, "اکیاون", "ikyaawan"], [52, "باون", "baawan"], [53, "ترپن", "tirpan"],
+  [54, "چوّن", "chauwan"], [55, "پچپن", "pachpan"], [56, "چھپن", "chhappan"],
+  [57, "ستاون", "sataawan"], [58, "اٹھاون", "athaawan"], [59, "انسٹھ", "unsath"],
+  [60, "ساٹھ", "saath"], [61, "اکسٹھ", "iksath"], [62, "باسٹھ", "baasath"],
+  [63, "تریسٹھ", "tirsath"], [64, "چونسٹھ", "chaunsath"], [65, "پینسٹھ", "painsath"],
+  [66, "چھیاسٹھ", "chhiyaasath"], [67, "سڑسٹھ", "sarsath"], [68, "اڑسٹھ", "arsath"],
+  [69, "انہتر", "unhattar"], [70, "ستر", "sattar"], [71, "اکہتر", "ikhattar"],
+  [72, "بہتر", "bahattar"], [73, "تہتر", "tehattar"], [74, "چوہتر", "chauhattar"],
+  [75, "پچہتر", "pachhattar"], [76, "چھہتر", "chhihattar"], [77, "ستتر", "sattattar"],
+  [78, "اٹھتر", "athhattar"], [79, "اناسی", "unaasi"], [80, "اسی", "assi"],
+  [81, "اکیاسی", "ikyaasi"], [82, "بیاسی", "bayaasi"], [83, "تراسی", "tiraasi"],
+  [84, "چوراسی", "chauraasi"], [85, "پچاسی", "pachaasi"], [86, "چھیاسی", "chhiyaasi"],
+  [87, "ستاسی", "sataasi"], [88, "اٹھاسی", "athaasi"], [89, "نواسی", "navaasi"],
+  [90, "نوے", "navve"], [91, "اکانوے", "ikaanave"], [92, "بانوے", "baanave"],
+  [93, "ترانوے", "tiraanave"], [94, "چورانوے", "chauraanave"], [95, "پچانوے", "pachaanave"],
+  [96, "چھیانوے", "chhiyaanave"], [97, "ستانوے", "sataanave"], [98, "اٹھانوے", "athaanave"],
+  [99, "ننانوے", "ninyanave"], [100, "ایک سو", "aik sau"],
 ];
 
 const LEVELS = {
   easy: { label: "0–20", filter: (n) => n <= 20 },
-  medium: { label: "0–40", filter: (n) => n <= 40 },
-  hard: { label: "0–40 + decades to 100", filter: () => true },
+  medium: { label: "0–50", filter: (n) => n <= 50 },
+  hard: { label: "0–100", filter: () => true },
 };
 
 function normalize(str) {
@@ -101,7 +118,7 @@ function fuzzyMatch(a, b) {
   return editDistance(a, b) <= threshold;
 }
 
-function UrduNumberSpeechQuiz() {
+function QuizTab({ tabBar }) {
   const [level, setLevel] = useState("easy");
   const [pool, setPool] = useState([]);
   const [current, setCurrent] = useState(null);
@@ -291,6 +308,7 @@ function UrduNumberSpeechQuiz() {
   return (
     <div style={styles.page}>
       <div style={styles.card}>
+        {tabBar}
         <div style={styles.header}>
           <div>
             <div style={styles.eyebrow}>گنتی بولیں</div>
@@ -375,6 +393,103 @@ function UrduNumberSpeechQuiz() {
   );
 }
 
+function FlashcardsTab({ tabBar }) {
+  const [level, setLevel] = useState("easy");
+  const [pool, setPool] = useState(() =>
+    NUMBERS.filter(([n]) => LEVELS["easy"].filter(n))
+  );
+  const [order, setOrder] = useState(() => pool.map((_, i) => i));
+  const [pos, setPos] = useState(0);
+  const [revealed, setRevealed] = useState(false);
+
+  useEffect(() => {
+    const p = NUMBERS.filter(([n]) => LEVELS[level].filter(n));
+    setPool(p);
+    setOrder(p.map((_, i) => i));
+    setPos(0);
+    setRevealed(false);
+  }, [level]);
+
+  const shuffle = () => {
+    setOrder((o) => {
+      const arr = [...o];
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    });
+    setPos(0);
+    setRevealed(false);
+  };
+
+  const goNext = () => {
+    setPos((p) => (order.length ? (p + 1) % order.length : 0));
+    setRevealed(false);
+  };
+  const goPrev = () => {
+    setPos((p) => (order.length ? (p - 1 + order.length) % order.length : 0));
+    setRevealed(false);
+  };
+
+  if (pool.length === 0 || order.length === 0) return null;
+  const current = pool[order[pos]];
+  if (!current) return null;
+
+  return (
+    <div style={styles.page}>
+      <div style={styles.card}>
+        {tabBar}
+        <div style={styles.header}>
+          <div>
+            <div style={styles.eyebrow}>فلیش کارڈز</div>
+            <h1 style={styles.title}>Urdu Numbers — Flashcards</h1>
+          </div>
+          <div style={styles.statBlock}>
+            <Stat label="Card" value={`${pos + 1}/${order.length}`} />
+          </div>
+        </div>
+
+        <div style={styles.levelRow}>
+          {Object.entries(LEVELS).map(([key, cfg]) => (
+            <button
+              key={key}
+              onClick={() => setLevel(key)}
+              style={{ ...styles.levelBtn, ...(level === key ? styles.levelBtnActive : {}) }}
+            >
+              {cfg.label}
+            </button>
+          ))}
+        </div>
+
+        <div style={styles.flashCard} onClick={() => setRevealed((r) => !r)}>
+          <div style={styles.numberDisplay}>{current[0]}</div>
+          {revealed ? (
+            <div style={styles.flashAnswer}>
+              <div style={styles.flashUrdu}>{current[1]}</div>
+              <div style={styles.flashRoman}>{current[2]}</div>
+            </div>
+          ) : (
+            <div style={styles.flashHint}>Tap the card to reveal</div>
+          )}
+        </div>
+
+        <div style={styles.flashNav}>
+          <button style={styles.resetBtn} onClick={goPrev}>← Prev</button>
+          <button style={styles.primaryBtn} onClick={() => setRevealed((r) => !r)}>
+            {revealed ? "Hide" : "Reveal"}
+          </button>
+          <button style={styles.resetBtn} onClick={goNext}>Next →</button>
+        </div>
+
+        <div style={styles.flashShuffleRow}>
+          <button style={styles.langBtn} onClick={shuffle}>🔀 Shuffle order</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Stat({ label, value, accent }) {
   return (
     <div style={styles.stat}>
@@ -411,10 +526,41 @@ const styles = {
   primaryBtn: { background: "#5B7F52", color: "#FFFFFF", border: "none", borderRadius: 3, padding: "10px 18px", fontSize: 14, cursor: "pointer", fontFamily: "inherit" },
   resetBtn: { background: "transparent", border: "1px solid #DDD4C7", borderRadius: 3, padding: "10px 14px", fontSize: 13, color: "#8A7F6A", cursor: "pointer", fontFamily: "inherit" },
   accuracyRow: { marginTop: 14, textAlign: "center", fontSize: 11, color: "#B5A98F", letterSpacing: 0.5 },
+  tabBarRow: { display: "flex", gap: 8, marginBottom: 18 },
+  tabBarBtn: { flex: 1, padding: "8px 10px", fontSize: 13, fontWeight: 600, borderRadius: 3, border: "1px solid #DDD4C7", background: "#F7F3EA", color: "#8A7F6A", cursor: "pointer", fontFamily: "inherit" },
+  tabBarBtnActive: { background: "#5B7F52", color: "#FFFFFF", borderColor: "#5B7F52" },
+  flashCard: { cursor: "pointer", textAlign: "center", border: "1px solid #DDD4C7", borderRadius: 4, padding: "28px 16px", marginBottom: 18, background: "#F7F3EA", minHeight: 140, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" },
+  flashAnswer: { display: "flex", flexDirection: "column", alignItems: "center", gap: 4 },
+  flashUrdu: { fontSize: 34, direction: "rtl" },
+  flashRoman: { fontSize: 14, color: "#8A7F6A", fontStyle: "italic" },
+  flashHint: { fontSize: 13, color: "#B5A98F" },
+  flashNav: { display: "flex", gap: 10, justifyContent: "center", alignItems: "center", marginBottom: 12 },
+  flashShuffleRow: { display: "flex", justifyContent: "center" },
 };
 
+function App() {
+  const [activeTab, setActiveTab] = useState("quiz");
+  const tabBar = (
+    <div style={styles.tabBarRow}>
+      <button
+        onClick={() => setActiveTab("flashcards")}
+        style={{ ...styles.tabBarBtn, ...(activeTab === "flashcards" ? styles.tabBarBtnActive : {}) }}
+      >
+        📇 Flashcards
+      </button>
+      <button
+        onClick={() => setActiveTab("quiz")}
+        style={{ ...styles.tabBarBtn, ...(activeTab === "quiz" ? styles.tabBarBtnActive : {}) }}
+      >
+        🎙 Quiz
+      </button>
+    </div>
+  );
+  return activeTab === "quiz" ? <QuizTab tabBar={tabBar} /> : <FlashcardsTab tabBar={tabBar} />;
+}
+
 try {
-  ReactDOM.createRoot(document.getElementById("root")).render(<UrduNumberSpeechQuiz />);
+  ReactDOM.createRoot(document.getElementById("root")).render(<App />);
 } catch (err) {
   document.getElementById("root").innerHTML =
     (window.__log ? window.__log.map(function(l){return "&#10003; " + l;}).join("<br>") : "") +
